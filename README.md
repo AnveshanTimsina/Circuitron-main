@@ -34,6 +34,7 @@ CIRCUITRON processes a hand-drawn circuit image through a four-stage ML pipeline
 ```
 
 **Key Features:**
+
 - **15-class YOLOv7 detection** — resistors, capacitors, diodes, voltage sources, transistors, op-amps, ICs, inductors, switches, junctions, terminals, ground, Vss, crossovers, and text labels
 - **Dual OCR modes** — ⚡ Fast (custom CRNN) and 🔬 Accurate (fine-tuned TrOCR)
 - **Skeleton-based wire tracing** — morphological skeletonization + multi-head BFS for full connectivity graph
@@ -100,16 +101,16 @@ CIRCUITRON processes a hand-drawn circuit image through a four-stage ML pipeline
 
 Custom-trained **YOLOv7** model detects 15 classes of circuit elements in hand-drawn images.
 
-| Index | Class | Index | Class |
-|-------|-------|-------|-------|
-| 0 | `capacitor` | 8 | `resistor` |
-| 1 | `crossover` | 9 | `switch` |
-| 2 | `diode` | 10 | `terminal` |
-| 3 | `gnd` | 11 | `text` |
-| 4 | `inductor` | 12 | `transistor` |
-| 5 | `integrated_circuit` | 13 | `voltage` |
-| 6 | `junction` | 14 | `vss` |
-| 7 | `operational_amplifier` | | |
+| Index | Class                   | Index | Class        |
+| ----- | ----------------------- | ----- | ------------ |
+| 0     | `capacitor`             | 8     | `resistor`   |
+| 1     | `crossover`             | 9     | `switch`     |
+| 2     | `diode`                 | 10    | `terminal`   |
+| 3     | `gnd`                   | 11    | `text`       |
+| 4     | `inductor`              | 12    | `transistor` |
+| 5     | `integrated_circuit`    | 13    | `voltage`    |
+| 6     | `junction`              | 14    | `vss`        |
+| 7     | `operational_amplifier` |       |              |
 
 **Inference settings:** `imgsz=640`, `conf=0.25`, `iou=0.45`
 
@@ -117,12 +118,12 @@ Custom-trained **YOLOv7** model detects 15 classes of circuit elements in hand-d
 
 Users choose between two OCR backends:
 
-| | ⚡ Fast Mode (CRNN) | 🔬 Accurate Mode (TrOCR) |
-|---|---|---|
-| **Architecture** | VGG (6 conv) → BiLSTM → CTC | ViT encoder + GPT-2 decoder |
-| **Input** | Grayscale, height 32px | RGB, 384×384 |
-| **Speed** | ~5–10× faster | Higher accuracy |
-| **Characters** | 90 chars (digits, letters, Ω, µ, ×) | Full vocabulary |
+|                  | ⚡ Fast Mode (CRNN)                 | 🔬 Accurate Mode (TrOCR)    |
+| ---------------- | ----------------------------------- | --------------------------- |
+| **Architecture** | VGG (6 conv) → BiLSTM → CTC         | ViT encoder + GPT-2 decoder |
+| **Input**        | Grayscale, height 32px              | RGB, 384×384                |
+| **Speed**        | ~5–10× faster                       | Higher accuracy             |
+| **Characters**   | 90 chars (digits, letters, Ω, µ, ×) | Full vocabulary             |
 
 ### Stage 3 — Proximity Mapping
 
@@ -186,6 +187,39 @@ The final pipeline output is converted to a CircuitJS1 netlist and loaded into a
 
 ---
 
+## Backend
+
+- **Overview:** FastAPI-based service that orchestrates the full pipeline (detection → OCR → proximity mapping → line detection → netlist export) and exposes a small REST API for the frontend and programmatic access.
+- **Key files:** [code/backend/main.py](code/backend/main.py) : FastAPI app; [code/backend/unified_pipeline.py](code/backend/unified_pipeline.py) : pipeline orchestrator; [code/backend/yolo_detector.py](code/backend/yolo_detector.py); [code/backend/ocr_service.py](code/backend/ocr_service.py); [code/backend/pipeline.py](code/backend/pipeline.py); [code/backend/proximity_mapper.py](code/backend/proximity_mapper.py).
+- **Typical API (examples):** image upload (POST `/api/upload`), job status (GET `/api/status/{id}`), annotations/netlist download (GET `/api/netlist/{id}`), annotated preview (GET `/api/annotated/{id}`). Consult `main.py` for the exact routes.
+- **Run locally:**
+
+```bash
+cd code/backend/
+pip install -r requirements.txt
+bash start.sh  # or `uvicorn main:app --host 0.0.0.0 --port 8000` for manual start
+```
+
+- **Environment & scaling:** configure `MODEL_PATHS`, `STORAGE_DIR`, `WORKERS`, and GPU device selection via environment variables; run multiple Uvicorn workers behind a reverse proxy (NGINX) or container orchestration for scale. Use the `--no-cache` / job-queue pattern for safe concurrent inference when GPU memory is limited.
+- **Deployment:** packaged in `deployment/` with a Dockerfile and configs for Railway / Render; the backend can be containerized (see `deployment/Dockerfile`).
+- **Logging & monitoring:** standard Python logging is used; route-level metrics and job status are easy to wire into Prometheus/Grafana or external error trackers.
+
+## Frontend
+
+- **Overview:** Next.js + TypeScript application providing the user UI for image upload, review/edit overlays, threshold tuning, and an embedded CircuitJS1 simulator. The UI also hosts the floating AI assistant for guided help and suggestions.
+- **Key files:** [code/frontend/package.json](code/frontend/package.json); [code/frontend/app/layout.tsx](code/frontend/app/layout.tsx) (app shell and global styles); UI components live under `code/frontend/app/` and `code/frontend/components/`.
+- **Integration:** frontend calls the backend REST API for uploads and results; circuit simulation is loaded into an iframe (CircuitJS1). Configurable client env vars include `NEXT_PUBLIC_API_URL` and `NEXT_PUBLIC_CJS_IFRAME_SRC`.
+- **Run locally:**
+
+```bash
+cd code/frontend/
+npm install
+npm run dev
+```
+
+- **Build & deploy:** build with `npm run build` and deploy to Vercel, Netlify, or serve the static build from a Node server / CDN. For full-stack deploys, pair the frontend with the backend container and configure CORS and env vars accordingly.
+- **UX features:** real-time threshold preview on canvas, toggle between OCR modes, six diagnostic SVG overlay views, editable component lists, and direct export (SVG/TXT/JSON) of annotated results.
+
 ## YOLO Model Comparison
 
 Multiple YOLO model architectures were evaluated for circuit component detection:
@@ -226,6 +260,7 @@ Circuitron/
 ## Setup
 
 ### Backend
+
 ```bash
 cd code/backend/
 pip install -r requirements.txt
@@ -233,6 +268,7 @@ bash start.sh
 ```
 
 ### Frontend
+
 ```bash
 cd code/frontend/
 npm install
@@ -240,6 +276,7 @@ npm run dev
 ```
 
 ### Full Web Application
+
 ```bash
 cd code/webapp/backend/
 pip install -r requirements.txt
@@ -252,22 +289,23 @@ npm run dev
 
 ## Tech Stack
 
-| Layer | Technology |
-|-------|-----------|
-| **Frontend** | Next.js, React, TypeScript, Tailwind CSS |
-| **Backend** | FastAPI, Python, Uvicorn |
-| **Detection** | YOLOv7 (Ultralytics), custom-trained on 15 classes |
-| **OCR** | TrOCR (HuggingFace), Custom CRNN (PyTorch) |
-| **Line Detection** | OpenCV, scikit-image, BFS pathfinding |
-| **Simulation** | CircuitJS1 (embedded), ngspice |
-| **AI Assistant** | Lightning AI / DeepSeek-V3.1 |
-| **Deployment** | Docker, Railway, Render |
+| Layer              | Technology                                         |
+| ------------------ | -------------------------------------------------- |
+| **Frontend**       | Next.js, React, TypeScript, Tailwind CSS           |
+| **Backend**        | FastAPI, Python, Uvicorn                           |
+| **Detection**      | YOLOv7 (Ultralytics), custom-trained on 15 classes |
+| **OCR**            | TrOCR (HuggingFace), Custom CRNN (PyTorch)         |
+| **Line Detection** | OpenCV, scikit-image, BFS pathfinding              |
+| **Simulation**     | CircuitJS1 (embedded), ngspice                     |
+| **AI Assistant**   | Lightning AI / DeepSeek-V3.1                       |
+| **Deployment**     | Docker, Railway, Render                            |
 
 ---
 
 ## Previous Repositories
 
 This is a unified repository consolidating:
+
 - `HostingCircuitron` — Latest deployed code (primary source)
 - `CircuitronFinalYearProject` — Complete materials collection
 - `CircuitronWebApp` — Full web application
