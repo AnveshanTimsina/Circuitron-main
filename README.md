@@ -17,6 +17,8 @@ CIRCUITRON is an end-to-end ML-powered application that converts photographs or 
   - [Stage 3 — Proximity Mapping](#stage-3--proximity-mapping)
   - [Stage 4 — Line Detection & Adjacency Graph](#stage-4--line-detection--adjacency-graph)
 - [Circuit Simulation](#circuit-simulation)
+- [Backend](#backend)
+- [Frontend](#frontend)
 - [YOLO Model Comparison](#yolo-model-comparison)
 - [Repository Structure](#repository-structure)
 - [Setup](#setup)
